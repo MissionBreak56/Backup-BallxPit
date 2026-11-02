@@ -4,6 +4,8 @@
         <package android:name="moe.shizuku.privileged.api" />
     </queries>
     <application
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="Backup Ball x Pit"
         android:theme="@style/AppTheme">
         <activity android:name=".MainActivity" android:exported="true">

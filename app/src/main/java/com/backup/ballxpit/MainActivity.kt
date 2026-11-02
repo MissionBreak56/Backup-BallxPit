@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.provider.DocumentsContract
 import android.view.Gravity
+import android.view.View
 import android.widget.*
 import rikka.shizuku.Shizuku
 import kotlin.concurrent.thread
@@ -36,58 +37,116 @@ class MainActivity : Activity() {
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
-    private fun button(text: String, onClick: () -> Unit) = Button(this).apply {
-        this.text = text
-        isAllCaps = false
-        setTextColor(Color.WHITE)
-        background = GradientDrawable().apply {
-            setColor(Color.parseColor("#2A2A2A")); cornerRadius = dp(12).toFloat()
-        }
-        setOnClickListener { onClick() }
-        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) }
+    private val cBg = Color.parseColor("#140B24")
+    private val cCard = Color.parseColor("#24143D")
+    private val cStroke = Color.parseColor("#3B2466")
+    private val cOrange = Color.parseColor("#FF9F1C")
+    private val cTeal = Color.parseColor("#2EE6C5")
+    private val cText = Color.parseColor("#F3E9FF")
+    private val cMuted = Color.parseColor("#A596C2")
+
+    private fun card(fill: Int = cCard, stroke: Int = cStroke, radius: Int = 16) = GradientDrawable().apply {
+        setColor(fill); setStroke(dp(1), stroke); cornerRadius = dp(radius).toFloat()
     }
 
-    private fun label(size: Float, color: String) = TextView(this).apply {
-        textSize = size; setTextColor(Color.parseColor(color))
+    private fun button(text: String, primary: Boolean = false, onClick: () -> Unit) = Button(this).apply {
+        this.text = text
+        isAllCaps = false
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+        setTextColor(if (primary) Color.parseColor("#1A0E2E") else cText)
+        background = if (primary) card(cOrange, cOrange, 14) else card(cCard, cTeal, 14)
+        setOnClickListener { onClick() }
+        layoutParams = LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(12) }
+    }
+
+    private fun label(size: Float, color: Int) = TextView(this).apply {
+        textSize = size; setTextColor(color)
+    }
+
+    private fun panel() = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        background = card()
+        setPadding(dp(16), dp(14), dp(16), dp(14))
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#121212"))
+            setBackgroundColor(cBg)
             setPadding(dp(20), dp(48), dp(20), dp(20))
         }
-        root.addView(label(24f, "#FFFFFF").apply { text = "Backup Ball x Pit"; gravity = Gravity.START })
-        root.addView(label(13f, "#9E9E9E").apply {
-            text = "Destino:\n$DEST"
-            setPadding(0, dp(6), 0, dp(16))
+
+        val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        header.addView(View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                gradientType = GradientDrawable.RADIAL_GRADIENT
+                gradientRadius = dp(22).toFloat()
+                setGradientCenter(0.35f, 0.35f)
+                colors = intArrayOf(Color.parseColor("#FFE3A8"), cOrange)
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(34), dp(34)).apply { rightMargin = dp(12) }
+        })
+        header.addView(label(26f, cText).apply {
+            text = "Ball x Pit"
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        })
+        header.addView(label(26f, cOrange).apply {
+            text = "  Backup"
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        })
+        root.addView(header)
+        root.addView(label(13f, cMuted).apply {
+            text = "Jogue seus saves na cova"
+            setPadding(0, dp(4), 0, 0)
         })
 
-        status = label(15f, "#FFFFFF")
-        root.addView(status)
+        val pStatus = panel()
+        status = label(15f, cText).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD }
+        pStatus.addView(status)
         btnPerm = button("Conceder permissão do Shizuku") { askShizuku() }
-        root.addView(btnPerm)
+        pStatus.addView(btnPerm)
+        root.addView(pStatus)
 
-        root.addView(button("Escolher pasta de origem") {
+        val pFiles = panel()
+        pFiles.addView(label(12f, cMuted).apply { text = "DESTINO (A COVA)" })
+        pFiles.addView(label(12f, cTeal).apply {
+            text = DEST
+            typeface = android.graphics.Typeface.MONOSPACE
+            setPadding(0, dp(4), 0, dp(14))
+        })
+        pFiles.addView(label(12f, cMuted).apply { text = "ORIGEM" })
+        source = label(13f, cOrange).apply {
+            text = "Nenhuma pasta escolhida"
+            typeface = android.graphics.Typeface.MONOSPACE
+            setPadding(0, dp(4), 0, 0)
+        }
+        pFiles.addView(source)
+        pFiles.addView(button("Escolher pasta de origem") {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQ_PICK)
         })
-        source = label(14f, "#BB86FC").apply { text = "Nenhuma pasta escolhida"; setPadding(0, dp(8), 0, 0) }
-        root.addView(source)
-
         copyOnly = CheckBox(this).apply {
             text = "Copiar (manter arquivos na origem)"
-            setTextColor(Color.WHITE)
+            setTextColor(cText)
+            buttonTintList = android.content.res.ColorStateList.valueOf(cOrange)
         }
-        root.addView(copyOnly)
+        pFiles.addView(copyOnly)
+        root.addView(pFiles)
 
-        btnGo = button("Enviar para o jogo") { transfer() }
+        btnGo = button("Enviar para o jogo", primary = true) { transfer() }
         root.addView(btnGo)
 
-        log = label(12f, "#B0B0B0").apply { setPadding(0, dp(12), 0, 0); setTextIsSelectable(true) }
+        log = label(12f, cMuted).apply {
+            typeface = android.graphics.Typeface.MONOSPACE
+            setTextIsSelectable(true)
+        }
         scroll = ScrollView(this).apply {
             addView(log)
-            layoutParams = LinearLayout.LayoutParams(-1, 0, 1f)
+            background = card(Color.parseColor("#0F081C"), cStroke, 12)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            layoutParams = LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(14) }
         }
         root.addView(scroll)
         setContentView(root)
@@ -121,6 +180,7 @@ class MainActivity : Activity() {
             !granted -> "Shizuku: em execução, permissão pendente."
             else -> "Shizuku: pronto ✔"
         }
+        status.setTextColor(if (granted) cTeal else cOrange)
         btnPerm.isEnabled = running && !granted
         btnGo.isEnabled = granted && sourcePath != null
         btnGo.alpha = if (btnGo.isEnabled) 1f else 0.4f
