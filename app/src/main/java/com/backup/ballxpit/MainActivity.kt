@@ -179,8 +179,9 @@ class MainActivity : Activity() {
         append("Iniciando (${if (move) "mover" else "copiar"})…")
         thread {
             try {
-                val cmd = "mkdir -p ${q(DEST)} && cp -rf ${q(src)}/. ${q(DEST)}/" +
-                    if (move) " && find ${q(src)} -mindepth 1 -delete" else ""
+                val tpl = resources.openRawResource(R.raw.copy_script).bufferedReader().readText()
+                val moveCmd = if (move) "find ${q(src)} -mindepth 1 -delete" else ""
+                val cmd = tpl.replace("@SRC@", q(src)).replace("@MOVE@", moveCmd)
                 val (code, out) = shell(cmd)
                 runOnUiThread {
                     append(if (code == 0) "Concluído ✔" else "Falhou (código $code)")
