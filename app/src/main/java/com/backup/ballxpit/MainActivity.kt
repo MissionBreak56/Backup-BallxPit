@@ -23,6 +23,12 @@ class MainActivity : Activity() {
     }
 
     private var sourcePath: String? = null
+    private var extractMode = false
+    private lateinit var lblFixed: TextView
+    private lateinit var lblPick: TextView
+    private lateinit var btnPick: Button
+    private lateinit var btnSend: Button
+    private lateinit var btnExtract: Button
     private lateinit var status: TextView
     private lateinit var source: TextView
     private lateinit var log: TextView
@@ -111,22 +117,32 @@ class MainActivity : Activity() {
         root.addView(pStatus)
 
         val pFiles = panel()
-        pFiles.addView(label(12f, cMuted).apply { text = "DESTINO (A COVA)" })
+        val modeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        btnSend = button("Enviar ao jogo") { setMode(false) }
+        btnExtract = button("Extrair do jogo") { setMode(true) }
+        btnSend.layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(6) }
+        btnExtract.layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(6) }
+        modeRow.addView(btnSend); modeRow.addView(btnExtract)
+        pFiles.addView(modeRow)
+        lblFixed = label(12f, cMuted).apply { setPadding(0, dp(14), 0, 0) }
+        pFiles.addView(lblFixed)
         pFiles.addView(label(12f, cTeal).apply {
             text = DEST
             typeface = android.graphics.Typeface.MONOSPACE
             setPadding(0, dp(4), 0, dp(14))
         })
-        pFiles.addView(label(12f, cMuted).apply { text = "ORIGEM" })
+        lblPick = label(12f, cMuted)
+        pFiles.addView(lblPick)
         source = label(13f, cOrange).apply {
             text = "Nenhuma pasta escolhida"
             typeface = android.graphics.Typeface.MONOSPACE
             setPadding(0, dp(4), 0, 0)
         }
         pFiles.addView(source)
-        pFiles.addView(button("Escolher pasta de origem") {
+        btnPick = button("") {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQ_PICK)
-        })
+        }
+        pFiles.addView(btnPick)
         copyOnly = CheckBox(this).apply {
             text = "Copiar (manter arquivos na origem)"
             setTextColor(cText)
@@ -136,6 +152,7 @@ class MainActivity : Activity() {
         root.addView(pFiles)
 
         btnGo = button("Enviar para o jogo", primary = true) { transfer() }
+        setMode(false)
         root.addView(btnGo)
 
         log = label(12f, cMuted).apply {
@@ -165,6 +182,22 @@ class MainActivity : Activity() {
     }
 
     override fun onResume() { super.onResume(); refresh() }
+
+    private fun setMode(extract: Boolean) {
+        extractMode = extract
+        sourcePath = null
+        source.text = "Nenhuma pasta escolhida"
+        lblFixed.text = if (extract) "ORIGEM (A COVA)" else "DESTINO (A COVA)"
+        lblPick.text = if (extract) "DESTINO" else "ORIGEM"
+        btnPick.text = if (extract) "Escolher pasta de destino" else "Escolher pasta de origem"
+        copyOnly.text = if (extract) "Copiar (manter arquivos no jogo)" else "Copiar (manter arquivos na origem)"
+        btnGo.text = if (extract) "Extrair do jogo" else "Enviar para o jogo"
+        btnSend.background = if (!extract) card(cOrange, cOrange, 14) else card(cCard, cTeal, 14)
+        btnSend.setTextColor(if (!extract) Color.parseColor("#1A0E2E") else cText)
+        btnExtract.background = if (extract) card(cOrange, cOrange, 14) else card(cCard, cTeal, 14)
+        btnExtract.setTextColor(if (extract) Color.parseColor("#1A0E2E") else cText)
+        refresh()
+    }
 
     private fun shizukuReady() = try {
         Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
@@ -235,13 +268,20 @@ class MainActivity : Activity() {
     private fun transfer() {
         val src = sourcePath ?: return
         val move = !copyOnly.isChecked
+        val extract = extractMode
         btnGo.isEnabled = false
-        append("Iniciando (${if (move) "mover" else "copiar"})…")
+        append("Iniciando (${if (extract) "extrair" else "enviar"}, ${if (move) "mover" else "copiar"})…")
         thread {
             try {
-                val tpl = resources.openRawResource(R.raw.copy_script).bufferedReader().readText()
-                val moveCmd = if (move) "find ${q(src)} -mindepth 1 -delete" else ""
-                val cmd = tpl.replace("@SRC@", q(src)).replace("@MOVE@", moveCmd)
+                val cmd = if (extract) {
+                    val tpl = resources.openRawResource(R.raw.extract_script).bufferedReader().readText()
+                    val moveCmd = if (move) "find \"\$S\" -mindepth 1 -delete" else ""
+                    tpl.replace("@DEST@", q(src)).replace("@MOVE@", moveCmd)
+                } else {
+                    val tpl = resources.openRawResource(R.raw.copy_script).bufferedReader().readText()
+                    val moveCmd = if (move) "find ${q(src)} -mindepth 1 -delete" else ""
+                    tpl.replace("@SRC@", q(src)).replace("@MOVE@", moveCmd)
+                }
                 val (code, out) = shell(cmd)
                 runOnUiThread {
                     append(if (code == 0) "Concluído ✔" else "Falhou (código $code)")

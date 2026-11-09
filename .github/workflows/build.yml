@@ -25,6 +25,6 @@ jobs:
           path: BackupBallxPit.apk
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0-${{ github.run_number }}
-          name: Backup Ball x Pit v1.0 (build ${{ github.run_number }})
+          tag_name: v1.1-${{ github.run_number }}
+          name: Backup Ball x Pit v1.1 (build ${{ github.run_number }})
           files: BackupBallxPit.apk
