@@ -5,6 +5,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.provider.DocumentsContract
@@ -43,23 +47,36 @@ class MainActivity : Activity() {
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
-    private val cBg = Color.parseColor("#140B24")
-    private val cCard = Color.parseColor("#24143D")
-    private val cStroke = Color.parseColor("#3B2466")
-    private val cOrange = Color.parseColor("#FF9F1C")
-    private val cTeal = Color.parseColor("#2EE6C5")
-    private val cText = Color.parseColor("#F3E9FF")
-    private val cMuted = Color.parseColor("#A596C2")
+    private val cBg = Color.parseColor("#0F0D0C")
+    private val cCard = Color.parseColor("#1C1815")
+    private val cStroke = Color.parseColor("#3D332B")
+    private val cOrange = Color.parseColor("#E9A63A")
+    private val cTeal = Color.parseColor("#8FB05A")
+    private val cText = Color.parseColor("#E8DDC9")
+    private val cMuted = Color.parseColor("#8C7F70")
 
-    private fun card(fill: Int = cCard, stroke: Int = cStroke, radius: Int = 16) = GradientDrawable().apply {
-        setColor(fill); setStroke(dp(1), stroke); cornerRadius = dp(radius).toFloat()
+    private fun darken(c: Int): Int {
+        val f = 0.55f
+        return Color.rgb((Color.red(c) * f).toInt(), (Color.green(c) * f).toInt(), (Color.blue(c) * f).toInt())
+    }
+
+    // Caixa "pixel": borda reta de 2dp + sombra dura embaixo, sem cantos arredondados
+    @Suppress("UNUSED_PARAMETER")
+    private fun card(fill: Int = cCard, stroke: Int = cStroke, radius: Int = 0): android.graphics.drawable.Drawable {
+        val shadow = GradientDrawable().apply { setColor(darken(stroke)) }
+        val top = GradientDrawable().apply { setColor(fill); setStroke(dp(2), stroke) }
+        return LayerDrawable(arrayOf(shadow, top)).apply {
+            setLayerInset(1, 0, 0, 0, dp(4))
+            setPaddingMode(LayerDrawable.PADDING_MODE_STACK)
+        }
     }
 
     private fun button(text: String, primary: Boolean = false, onClick: () -> Unit) = Button(this).apply {
         this.text = text
         isAllCaps = false
-        typeface = android.graphics.Typeface.DEFAULT_BOLD
-        setTextColor(if (primary) Color.parseColor("#1A0E2E") else cText)
+        typeface = android.graphics.Typeface.MONOSPACE
+        setTypeface(typeface, android.graphics.Typeface.BOLD)
+        setTextColor(if (primary) Color.parseColor("#1A0F05") else cText)
         background = if (primary) card(cOrange, cOrange, 14) else card(cCard, cTeal, 14)
         setOnClickListener { onClick() }
         layoutParams = LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(12) }
@@ -67,6 +84,7 @@ class MainActivity : Activity() {
 
     private fun label(size: Float, color: Int) = TextView(this).apply {
         textSize = size; setTextColor(color)
+        typeface = android.graphics.Typeface.MONOSPACE
     }
 
     private fun panel() = LinearLayout(this).apply {
@@ -85,29 +103,23 @@ class MainActivity : Activity() {
         }
 
         val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        header.addView(View(this).apply {
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                gradientType = GradientDrawable.RADIAL_GRADIENT
-                gradientRadius = dp(22).toFloat()
-                setGradientCenter(0.35f, 0.35f)
-                colors = intArrayOf(Color.parseColor("#FFE3A8"), cOrange)
-            }
-            layoutParams = LinearLayout.LayoutParams(dp(34), dp(34)).apply { rightMargin = dp(12) }
+        header.addView(PixelBall(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40)).apply { rightMargin = dp(12) }
         })
         header.addView(label(26f, cText).apply {
-            text = "Ball x Pit"
+            text = "BALL x PIT"
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         })
         header.addView(label(26f, cOrange).apply {
-            text = "  Backup"
+            text = "  BACKUP"
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         })
         root.addView(header)
         root.addView(label(13f, cMuted).apply {
-            text = "Jogue seus saves na cova"
-            setPadding(0, dp(4), 0, 0)
+            text = "Ballbylon caiu. Proteja seus saves."
+            setPadding(0, dp(6), 0, dp(10))
         })
+        root.addView(BrickRow(this).apply { layoutParams = LinearLayout.LayoutParams(-1, dp(26)) })
 
         val pStatus = panel()
         status = label(15f, cText).apply { typeface = android.graphics.Typeface.DEFAULT_BOLD }
@@ -161,7 +173,7 @@ class MainActivity : Activity() {
         }
         scroll = ScrollView(this).apply {
             addView(log)
-            background = card(Color.parseColor("#0F081C"), cStroke, 12)
+            background = card(Color.parseColor("#0A0807"), cStroke, 12)
             setPadding(dp(12), dp(10), dp(12), dp(10))
             layoutParams = LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(14) }
         }
@@ -187,15 +199,15 @@ class MainActivity : Activity() {
         extractMode = extract
         sourcePath = null
         source.text = "Nenhuma pasta escolhida"
-        lblFixed.text = if (extract) "ORIGEM (A COVA)" else "DESTINO (A COVA)"
+        lblFixed.text = if (extract) "ORIGEM (O POÇO)" else "DESTINO (O POÇO)"
         lblPick.text = if (extract) "DESTINO" else "ORIGEM"
         btnPick.text = if (extract) "Escolher pasta de destino" else "Escolher pasta de origem"
         copyOnly.text = if (extract) "Copiar (manter arquivos no jogo)" else "Copiar (manter arquivos na origem)"
         btnGo.text = if (extract) "Extrair do jogo" else "Enviar para o jogo"
         btnSend.background = if (!extract) card(cOrange, cOrange, 14) else card(cCard, cTeal, 14)
-        btnSend.setTextColor(if (!extract) Color.parseColor("#1A0E2E") else cText)
+        btnSend.setTextColor(if (!extract) Color.parseColor("#1A0F05") else cText)
         btnExtract.background = if (extract) card(cOrange, cOrange, 14) else card(cCard, cTeal, 14)
-        btnExtract.setTextColor(if (extract) Color.parseColor("#1A0E2E") else cText)
+        btnExtract.setTextColor(if (extract) Color.parseColor("#1A0F05") else cText)
         refresh()
     }
 
@@ -297,5 +309,52 @@ class MainActivity : Activity() {
     private fun append(msg: String) {
         log.append(msg + "\n")
         scroll.post { scroll.fullScroll(ScrollView.FOCUS_DOWN) }
+    }
+}
+
+
+// Sprite de bola em pixel art (11x11), mesmas cores do ícone
+private class PixelBall(ctx: Context) : View(ctx) {
+    private val paint = Paint().apply { isAntiAlias = false }
+    private val n = 11
+    override fun onDraw(c: Canvas) {
+        val u = minOf(width, height) / n.toFloat()
+        for (y in 0 until n) for (x in 0 until n) {
+            val d = Math.hypot(x + .5 - n / 2.0, y + .5 - n / 2.0)
+            if (d > n / 2.0) continue
+            var col = if (d > n / 2.0 - 1) "#3B2410" else "#E9A63A"
+            if (col == "#E9A63A") {
+                if (d > 3.2 && x + y > n) col = "#B8741F"
+                if ((x == 2 && y == 3) || (x == 3 && y == 2) || (x == 3 && y == 3) || (x == 4 && y == 2) || (x == 2 && y == 4)) col = "#FFE7A0"
+            }
+            paint.color = Color.parseColor(col)
+            c.drawRect(x * u, y * u, (x + 1) * u, (y + 1) * u, paint)
+        }
+    }
+}
+
+// Fileira de tijolos estilo Breakout, com alguns quebrados
+private class BrickRow(ctx: Context) : View(ctx) {
+    private val paint = Paint()
+    private val cols = intArrayOf(
+        Color.parseColor("#8E3B2A"), Color.parseColor("#B5702F"),
+        Color.parseColor("#6E7A3E"), Color.parseColor("#3F6B66")
+    )
+    override fun onDraw(c: Canvas) {
+        val rows = 2
+        val gap = 3f
+        val bw = width / 9f
+        val bh = (height - gap) / rows
+        for (r in 0 until rows) {
+            val off = if (r % 2 == 0) 0f else -bw / 2
+            for (i in 0..9) {
+                val x = off + i * bw
+                if ((r == 0 && i == 6) || (r == 1 && i == 2)) continue
+                paint.color = cols[(i + r * 2) % cols.size]
+                c.drawRect(x + gap / 2, r * (bh + gap), x + bw - gap / 2, r * (bh + gap) + bh, paint)
+                paint.color = Color.argb(46, 255, 255, 255)
+                c.drawRect(x + gap / 2, r * (bh + gap), x + bw - gap / 2, r * (bh + gap) + 3f, paint)
+            }
+        }
     }
 }
